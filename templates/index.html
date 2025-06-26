@@ -57,13 +57,15 @@
         td .thumbnail-grid { display: flex; flex-wrap: wrap; gap: 0.25rem; max-width: 150px;}
         td .thumbnail-grid img { width: 32px; height: 32px; object-fit: cover; border-radius: 0.125rem; cursor: pointer; transition: transform 0.2s ease-in-out; }
         td .thumbnail-grid img:hover { transform: scale(1.1); }
+        .search-bar-container { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        .search-bar-container input { flex-grow: 1; margin-bottom: 0; }
+        
+        /* --- MODAL STYLES (for Edit and Settings) --- */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; color: #1f2937; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         .modal-title { font-size: 1.25rem; font-weight: 600; }
         .modal-close-btn { font-size: 1.5rem; line-height: 1; cursor: pointer; background: none; border: none; color: #4b5563; }
-        .search-bar-container { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-        .search-bar-container input { flex-grow: 1; margin-bottom: 0; }
 
         /* --- IMAGE POPUP (FROM SEARCH) --- */
         #imagePopupOverlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.65); display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 1rem; cursor: pointer; }
@@ -85,6 +87,12 @@
         <nav class="flex items-center space-x-2">
             <button id="navInventory" class="btn btn-primary">Inventory</button>
             <button id="navSearch" class="btn btn-secondary">Search</button>
+            <button id="navSettings" class="btn btn-secondary p-2" title="Settings">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 1.905c-.007.379.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.333.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-1.905c.007-.379-.137-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+            </button>
         </nav>
     </header>
 
@@ -154,7 +162,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title">Edit Prop</h2>
-                <button id="closeModalButton" class="modal-close-btn">&times;</button>
+                <button class="modal-close-btn">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="editPropForm">
@@ -169,9 +177,33 @@
                     <div class="form-group"><label>Current Images:</label><div id="editPropImages" class="thumbnail-grid border p-2 rounded-md bg-gray-50 min-h-[40px]"></div></div>
                 </form>
             </div>
-            <div class="modal-footer text-right mt-4"><button id="saveChangesButton" class="btn btn-primary">Save Changes</button><button id="cancelEditButton" class="btn btn-secondary ml-2">Cancel</button></div>
+            <div class="modal-footer text-right mt-4"><button id="saveChangesButton" class="btn btn-primary">Save Changes</button><button class="btn btn-secondary ml-2 modal-close-btn">Cancel</button></div>
         </div>
     </div>
+    
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Manage Locations</h2>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <section class="mb-6">
+                    <h3 class="font-semibold text-lg mb-2">Add New Location</h3>
+                    <form id="addLocationForm" class="flex items-center gap-2">
+                        <input type="text" id="newLocationNameInput" class="input-field mb-0 flex-grow" placeholder="e.g., Shelf C3" required>
+                        <button type="submit" class="btn btn-primary">Add</button>
+                    </form>
+                </section>
+                <section>
+                    <h3 class="font-semibold text-lg mb-2">Current Locations</h3>
+                    <div id="currentLocationsList" class="bg-gray-100 p-3 rounded-md min-h-[100px] max-h-48 overflow-y-auto">
+                        </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
 
     <div id="imagePopupOverlay" class="hidden">
         <div class="image-popup-content-wrapper">
@@ -198,6 +230,7 @@
         // Navigation
         const navInventory = document.getElementById('navInventory');
         const navSearch = document.getElementById('navSearch');
+        const navSettings = document.getElementById('navSettings'); // New
         const addPropSection = document.getElementById('addPropSection');
         const searchPropsSection = document.getElementById('searchPropsSection');
 
@@ -206,7 +239,6 @@
         const photoCanvasEl = document.getElementById('photoCanvasEl');
         const capturePhotoButton = document.getElementById('capturePhotoButton');
         const capturedPhotosContainer = document.getElementById('capturedPhotosContainer');
-        const noPhotosMessage = document.getElementById('noPhotosMessage');
         const storageIdInput = document.getElementById('storageIdInput');
         const locationInput = document.getElementById('locationInput');
         const quantityInput = document.getElementById('quantityInput');
@@ -222,8 +254,6 @@
 
         // Edit Modal Elements
         const editPropModal = document.getElementById('editPropModal');
-        const closeModalButton = document.getElementById('closeModalButton');
-        const cancelEditButton = document.getElementById('cancelEditButton');
         const saveChangesButton = document.getElementById('saveChangesButton');
         const editPropIdInput = document.getElementById('editPropId');
         const editStorageIdInput = document.getElementById('editStorageId');
@@ -234,6 +264,12 @@
         const editKeywordsInput = document.getElementById('editKeywords');
         const editStatusInput = document.getElementById('editStatus');
         const editPropImagesContainer = document.getElementById('editPropImages');
+        
+        // Settings Modal Elements (New)
+        const settingsModal = document.getElementById('settingsModal');
+        const addLocationForm = document.getElementById('addLocationForm');
+        const newLocationNameInput = document.getElementById('newLocationNameInput');
+        const currentLocationsList = document.getElementById('currentLocationsList');
 
         // Image Popup Elements
         const imagePopupOverlay = document.getElementById('imagePopupOverlay');
@@ -256,16 +292,16 @@
         function showSection(sectionId) {
             addPropSection.classList.add('hidden');
             searchPropsSection.classList.add('hidden');
+            navInventory.classList.replace('btn-primary', 'btn-secondary');
+            navSearch.classList.replace('btn-primary', 'btn-secondary');
 
             if (sectionId === 'add') {
                 addPropSection.classList.remove('hidden');
                 navInventory.classList.replace('btn-secondary', 'btn-primary');
-                navSearch.classList.replace('btn-primary', 'btn-secondary');
                 startCamera();
-            } else {
+            } else { // search
                 searchPropsSection.classList.remove('hidden');
                 navSearch.classList.replace('btn-secondary', 'btn-primary');
-                navInventory.classList.replace('btn-primary', 'btn-secondary');
                 stopCamera();
                 fetchProps(); // Refresh search results when switching to tab
             }
@@ -289,7 +325,7 @@
                 activeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 cameraStreamEl.srcObject = activeStream;
             } catch (err) {
-                showUIMessage('Could not access camera. Please check permissions.', 'error');
+                showUIMessage('Could not access camera. Please check permissions.', 'error', false);
             }
         }
         function stopCamera() {
@@ -311,9 +347,9 @@
         function renderCapturedPhotos() {
             capturedPhotosContainer.innerHTML = '';
             if (capturedPhotoDataUrls.length === 0) {
-                capturedPhotosContainer.innerHTML = '<p id="noPhotosMessage" class="text-gray-500 text-xs text-center">No photos captured.</p>';
+                capturedPhotosContainer.innerHTML = '<p class="text-gray-500 text-xs text-center">No photos captured.</p>';
             } else {
-                capturedPhotoDataUrls.forEach((photo, index) => {
+                capturedPhotoDataUrls.forEach((photo) => {
                     const pDiv = document.createElement('div'); pDiv.className = 'captured-photo';
                     const img = document.createElement('img'); img.src = photo.url;
                     const rmBtn = document.createElement('button'); rmBtn.className = 'remove-photo-btn'; rmBtn.innerHTML = '&times;';
@@ -360,14 +396,15 @@
             }
         });
 
-        // --- LOCATION MANAGEMENT LOGIC ---
+        // --- LOCATION MANAGEMENT (NEW & UPDATED) ---
         async function fetchAndPopulateLocations() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/locations`);
                 if (!response.ok) throw new Error('Failed to fetch locations');
                 allLocations = await response.json();
                 
-                // For "Add Prop" dropdown
+                // Populate the "Add Prop" dropdown
+                const selectedLocation = locationInput.value;
                 locationInput.innerHTML = '<option value="">-- Select Location --</option>';
                 allLocations.forEach(loc => {
                     const option = document.createElement('option');
@@ -375,22 +412,63 @@
                     option.textContent = loc.name;
                     locationInput.appendChild(option);
                 });
+                locationInput.value = selectedLocation;
 
-                // For "Edit Prop" dropdown
+                // Populate the "Edit Prop" dropdown
+                const selectedEditLocation = editLocationInput.value;
                 editLocationInput.innerHTML = '<option value="">-- Select Location --</option>';
                  allLocations.forEach(loc => {
                     const option = document.createElement('option');
                     option.value = loc.name;
                     option.textContent = loc.name;
-                    editLocationInput.appendChild(option.cloneNode(true));
+                    editLocationInput.appendChild(option);
                 });
+                editLocationInput.value = selectedEditLocation;
 
+                // Populate the list in the Settings modal
+                currentLocationsList.innerHTML = '';
+                if (allLocations.length === 0) {
+                    currentLocationsList.innerHTML = '<p class="text-gray-500 text-sm">No locations defined yet.</p>';
+                } else {
+                    const ul = document.createElement('ul');
+                    ul.className = 'list-disc list-inside text-gray-700 space-y-1';
+                    allLocations.forEach(loc => {
+                        const li = document.createElement('li');
+                        li.textContent = loc.name;
+                        ul.appendChild(li);
+                    });
+                    currentLocationsList.appendChild(ul);
+                }
             } catch (error) {
-                showUIMessage(`Could not load locations: ${error.message}`, "error");
+                showUIMessage(`Could not load locations: ${error.message}`, "error", false);
             }
         }
+        
+        addLocationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const locationName = newLocationNameInput.value.trim();
+            if (!locationName) {
+                showUIMessage('Location name cannot be empty.', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: locationName })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                
+                showUIMessage(`Location "${locationName}" added.`, 'success');
+                newLocationNameInput.value = '';
+                await fetchAndPopulateLocations(); // This now refreshes everything!
+            } catch (error) {
+                showUIMessage(`Error: ${error.message}`, 'error');
+            }
+        });
 
-        // --- SEARCH/MANAGE PROP LOGIC (from Props_Search.html) ---
+        // --- SEARCH/MANAGE PROP LOGIC ---
         async function fetchProps(searchTerm = '') {
             propsTableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4">Loading...</td></tr>`;
             try {
@@ -450,7 +528,13 @@
         searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchProps(searchInput.value); });
         clearSearchButton.addEventListener('click', () => { searchInput.value = ''; fetchProps(); });
         
-        // Edit Modal
+        // MODAL & POPUP LOGIC
+        function setupModal(modal, openButtons, closeButtons) {
+            openButtons.forEach(btn => btn.addEventListener('click', () => modal.classList.remove('hidden')));
+            closeButtons.forEach(btn => btn.addEventListener('click', () => modal.classList.add('hidden')));
+        }
+        
+        // Setup for Edit Modal
         async function openEditModal(propId) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/prop/${propId}`);
@@ -469,8 +553,11 @@
                 showUIMessage(`Error: ${error.message}`, "error");
             }
         }
-        closeModalButton.addEventListener('click', () => editPropModal.classList.add('hidden'));
-        cancelEditButton.addEventListener('click', () => editPropModal.classList.add('hidden'));
+        setupModal(editPropModal, [], document.querySelectorAll('#editPropModal .modal-close-btn'));
+        
+        // Setup for Settings Modal (New)
+        setupModal(settingsModal, [navSettings], document.querySelectorAll('#settingsModal .modal-close-btn'));
+        
         saveChangesButton.addEventListener('click', async () => {
              const propId = editPropIdInput.value;
             const updatedData = {
