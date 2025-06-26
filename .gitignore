@@ -1,0 +1,8 @@
+# Database
+TCF_props.db
+
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
