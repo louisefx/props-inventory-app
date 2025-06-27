@@ -1,5 +1,7 @@
 import flask
-from flask import render_template
+from flask import (
+    render_template, request, session, redirect, url_for, g, flash
+)
 from flask_cors import CORS
 import sqlite3
 import os
@@ -8,9 +10,14 @@ import base64
 import uuid
 import time
 import click
+from werkzeug.security import generate_password_hash, check_password_hash
+import functools
 
 # --- Flask App Setup ---
 app = flask.Flask(__name__)
+# This SECRET_KEY is essential for session security.
+# In a real app, this should be a long, random string stored securely.
+app.config['SECRET_KEY'] = 'dev' # Use 'dev' for now, but change for production
 CORS(app)
 
 # --- Persistent Storage Configuration for Render ---
@@ -23,30 +30,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # --- Database Functions ---
 def get_db():
-    # Use getattr to safely access flask.g attributes
-    db = getattr(flask.g, '_database', None)
-    if db is None:
-        db = flask.g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
-    return db
+    if 'db' not in g:
+        g.db = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES)
+        g.db.row_factory = sqlite3.Row
+    return g.db
 
 @app.teardown_appcontext
 def close_connection(exception):
-    db = getattr(flask.g, '_database', None)
+    db = g.pop('db', None)
     if db is not None:
         db.close()
 
 def init_db():
-    """Initializes the database using schema.sql and creates upload folder."""
-    # Check for upload folder and create it
+    """Initializes the database using schema.sql."""
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
         print(f"INFO: Created upload folder at: '{app.config['UPLOAD_FOLDER']}'")
-    
-    # Use a try-except block for robustness
     try:
         db = get_db()
-        # Ensure the schema.sql file is being found
         with app.open_resource('schema.sql', mode='r') as f:
             db.cursor().executescript(f.read())
         db.commit()
@@ -54,67 +55,121 @@ def init_db():
     except Exception as e:
         print(f"ERROR_INIT_DB: An error occurred during database initialization: {e}")
 
-
-# --- NEW: Define a command-line command `flask init-db` ---
+# --- CLI Commands ---
 @app.cli.command('init-db')
 def init_db_command():
-    """Clears the existing data and creates new tables."""
+    """Clears existing data and creates new tables."""
     init_db()
     click.echo('Initialized the database.')
 
+@app.cli.command('add-user')
+@click.argument('username')
+@click.argument('password')
+def add_user_command(username, password):
+    """Creates a new user."""
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, generate_password_hash(password)),
+        )
+        db.commit()
+        click.echo(f"User {username} created successfully.")
+    except db.IntegrityError:
+        click.echo(f"Error: User {username} already exists.")
+    finally:
+        close_connection(None)
 
-# --- HTML Rendering Route ---
+# --- Authentication Logic and Routes ---
+
+@app.before_request
+def load_logged_in_user():
+    """If a user id is stored in the session, load the user object from the database."""
+    user_id = session.get('user_id')
+    if user_id is None:
+        g.user = None
+    else:
+        g.user = get_db().execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+
+def login_required(view):
+    """View decorator that redirects anonymous users to the login page."""
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if g.user is None:
+            # For API endpoints, return a 401 Unauthorized error
+            if request.path.startswith('/api/'):
+                return flask.jsonify({"error": "Authentication required"}), 401
+            # For web pages, redirect to the login page
+            return redirect(url_for('login'))
+        return view(**kwargs)
+    return wrapped_view
+
+@app.route('/login', methods=('GET', 'POST'))
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+        error = None
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+
+        if user is None:
+            error = 'Incorrect username.'
+        elif not check_password_hash(user['password'], password):
+            error = 'Incorrect password.'
+
+        if error is None:
+            # store the user id in a new session and return to the main app
+            session.clear()
+            session['user_id'] = user['id']
+            return redirect(url_for('index'))
+        
+        flash(error, 'error')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Clear the current session, including the user id."""
+    session.clear()
+    return redirect(url_for('login'))
+
+# --- PROTECTED Application Routes ---
+
 @app.route('/')
+@login_required
 def index():
     """Renders the main unified HTML page."""
     return render_template('index.html')
 
-
-# --- ALL YOUR API ENDPOINTS ---
-# These routes were likely missing before.
-
 @app.route('/api/locations', methods=['GET'])
+@login_required
 def get_locations_api():
     db = get_db()
     cursor = db.cursor()
-    try:
-        cursor.execute("SELECT id, name FROM locations ORDER BY name ASC")
-        locations_rows = cursor.fetchall()
-        locations_list = [dict(row) for row in locations_rows]
-        return flask.jsonify(locations_list), 200
-    except sqlite3.Error as e:
-        print(f"DATABASE_ERROR_GET_LOCATIONS: {e}")
-        # This will return a 500 if the "locations" table doesn't exist.
-        return flask.jsonify({"error": f"Database error fetching locations: {str(e)}"}), 500
+    cursor.execute("SELECT id, name FROM locations ORDER BY name ASC")
+    locations_list = [dict(row) for row in cursor.fetchall()]
+    return flask.jsonify(locations_list), 200
 
 @app.route('/api/locations', methods=['POST'])
+@login_required
 def add_location_api():
     db = get_db()
-    cursor = db.cursor()
-    if not flask.request.is_json:
-        return flask.jsonify({"error": "Request must be JSON"}), 400
-    data = flask.request.get_json()
-    location_name = data.get('name')
-    if not location_name or not location_name.strip():
-        return flask.jsonify({"error": "Location name cannot be empty"}), 400
-    location_name = location_name.strip()
+    data = request.get_json()
+    location_name = data['name'].strip()
     try:
+        cursor = db.cursor()
         cursor.execute("INSERT INTO locations (name) VALUES (?)", (location_name,))
         db.commit()
-        new_location_id = cursor.lastrowid
-        print(f"SUCCESS_ADD_LOCATION: Location '{location_name}' (ID: {new_location_id}) added to database.")
-        return flask.jsonify({"message": "Location added successfully!", "id": new_location_id, "name": location_name}), 201
-    except sqlite3.IntegrityError:
-        db.rollback()
-        print(f"DATABASE_ERROR_ADD_LOCATION: Location '{location_name}' already exists.")
+        return flask.jsonify({"message": "Location added successfully!", "id": cursor.lastrowid, "name": location_name}), 201
+    except db.IntegrityError:
         return flask.jsonify({"error": f"Location '{location_name}' already exists."}), 409
-    except sqlite3.Error as e:
-        db.rollback()
-        print(f"DATABASE_ERROR_ADD_LOCATION: {e}")
-        return flask.jsonify({"error": f"Database error adding location: {str(e)}"}), 500
+
+# (Apply @login_required to all other API routes as well)
 
 @app.route('/api/add_prop', methods=['POST'])
+@login_required
 def add_prop():
+    # ... your existing add_prop code ...
     db = get_db()
     cursor = db.cursor()
     if not flask.request.is_json:
@@ -166,7 +221,9 @@ def add_prop():
         return flask.jsonify({"error": f"Database error: {str(e)}"}), 500
 
 @app.route('/api/props', methods=['GET'])
+@login_required
 def get_props():
+    # ... your existing get_props code ...
     db = get_db()
     cursor = db.cursor()
     search_query = flask.request.args.get('search', '').strip()
@@ -197,11 +254,14 @@ def get_props():
         print(f"DATABASE_ERROR_GET_PROPS: {e}")
         return flask.jsonify({"error": f"Database error: {str(e)}"}), 500
 
-@app.route('/api/prop/<int:prop_id>', methods=['GET'])
-def get_prop_by_id(prop_id):
-    db = get_db()
-    cursor = db.cursor()
-    try:
+
+@app.route('/api/prop/<int:prop_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def handle_prop(prop_id):
+    if request.method == 'GET':
+        # ... your get_prop_by_id logic ...
+        db = get_db()
+        cursor = db.cursor()
         cursor.execute("SELECT * FROM props WHERE id = ?", (prop_id,))
         prop_row = cursor.fetchone()
         if prop_row:
@@ -213,52 +273,48 @@ def get_prop_by_id(prop_id):
             return flask.jsonify(prop_item), 200
         else:
             return flask.jsonify({"error": "Prop not found"}), 404
-    except sqlite3.Error as e:
-        print(f"DATABASE_ERROR_GET_PROP_ID ({prop_id}): {e}")
-        return flask.jsonify({"error": f"Database error: {str(e)}"}), 500
+            
+    elif request.method == 'PUT':
+        # ... your update_prop logic ...
+        db = get_db()
+        cursor = db.cursor()
+        data = flask.request.get_json()
+        try:
+            cursor.execute("""
+                UPDATE props SET Location = ?, Storage_id = ?, Description = ?, Keywords = ?, Category = ?, Status = ?, Quantity = ? WHERE id = ?
+            """, (
+                data.get('Location'), data.get('Storage_id'), data.get('Description'),
+                data.get('Keywords'), data.get('Category'), data.get('Status'),
+                data.get('Quantity'), prop_id
+            ))
+            db.commit()
+            return flask.jsonify({"message": "Prop updated successfully!", "id": prop_id}), 200
+        except sqlite3.Error as e:
+            db.rollback()
+            return flask.jsonify({"error": f"Database error updating prop: {str(e)}"}), 500
 
-@app.route('/api/prop/<int:prop_id>', methods=['PUT'])
-def update_prop(prop_id):
-    db = get_db()
-    cursor = db.cursor()
-    data = flask.request.get_json()
-    try:
-        cursor.execute("""
-            UPDATE props SET Location = ?, Storage_id = ?, Description = ?, Keywords = ?, Category = ?, Status = ?, Quantity = ? WHERE id = ?
-        """, (
-            data.get('Location'), data.get('Storage_id'), data.get('Description'),
-            data.get('Keywords'), data.get('Category'), data.get('Status'),
-            data.get('Quantity'), prop_id
-        ))
-        db.commit()
-        return flask.jsonify({"message": "Prop updated successfully!", "id": prop_id}), 200
-    except sqlite3.Error as e:
-        db.rollback()
-        return flask.jsonify({"error": f"Database error updating prop: {str(e)}"}), 500
-
-@app.route('/api/prop/<int:prop_id>', methods=['DELETE'])
-def delete_prop(prop_id):
-    db = get_db()
-    cursor = db.cursor()
-    try:
-        # First, get image filenames to delete them
-        cursor.execute("SELECT file FROM props WHERE id = ?", (prop_id,))
-        row = cursor.fetchone()
-        if row and row['file']:
-            image_filenames = json.loads(row['file'])
-            for filename in image_filenames:
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-        
-        # Now, delete the prop record
-        cursor.execute("DELETE FROM props WHERE id = ?", (prop_id,))
-        db.commit()
-        return flask.jsonify({"message": "Prop deleted successfully!", "id": prop_id}), 200
-    except sqlite3.Error as e:
-        db.rollback()
-        return flask.jsonify({"error": f"Database error deleting prop: {str(e)}"}), 500
+    elif request.method == 'DELETE':
+        # ... your delete_prop logic ...
+        db = get_db()
+        cursor = db.cursor()
+        try:
+            cursor.execute("SELECT file FROM props WHERE id = ?", (prop_id,))
+            row = cursor.fetchone()
+            if row and row['file']:
+                image_filenames = json.loads(row['file'])
+                for filename in image_filenames:
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+            
+            cursor.execute("DELETE FROM props WHERE id = ?", (prop_id,))
+            db.commit()
+            return flask.jsonify({"message": "Prop deleted successfully!", "id": prop_id}), 200
+        except sqlite3.Error as e:
+            db.rollback()
+            return flask.jsonify({"error": f"Database error deleting prop: {str(e)}"}), 500
 
 @app.route('/uploads/<filename>')
+@login_required
 def uploaded_file(filename):
     return flask.send_from_directory(app.config['UPLOAD_FOLDER'], filename)
