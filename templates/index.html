@@ -93,9 +93,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
             </button>
+            <button id="navLogout" class="btn btn-danger p-2" title="Logout">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H5" />
+                </svg>
+            </button>
         </nav>
     </header>
 
+    <!-- SECTION FOR ADDING PROPS -->
     <div id="addPropSection">
         <div class="main-content-card">
              <form id="inventoryForm">
@@ -134,6 +140,7 @@
         </div>
     </div>
 
+    <!-- SECTION FOR SEARCHING PROPS -->
     <div id="searchPropsSection" class="hidden">
         <div class="main-content-card">
             <header class="flex justify-between items-center mb-4">
@@ -158,6 +165,7 @@
         </div>
     </div>
 
+    <!-- MODAL for editing props -->
     <div id="editPropModal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -181,6 +189,7 @@
         </div>
     </div>
     
+    <!-- MODAL for settings/managing locations -->
     <div id="settingsModal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -198,12 +207,14 @@
                 <section>
                     <h3 class="font-semibold text-lg mb-2">Current Locations</h3>
                     <div id="currentLocationsList" class="bg-gray-100 p-3 rounded-md min-h-[100px] max-h-48 overflow-y-auto">
-                        </div>
+                        <!-- Location list will be populated here by JavaScript -->
+                    </div>
                 </section>
             </div>
         </div>
     </div>
 
+    <!-- POPUP for viewing images -->
     <div id="imagePopupOverlay" class="hidden">
         <div class="image-popup-content-wrapper">
             <button id="closeImagePopupButton" title="Close image preview"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
@@ -216,6 +227,7 @@
         </div>
     </div>
 
+    <!-- Message Area -->
     <div id="messageArea" class="fixed bottom-4 right-4 z-50"></div>
 
     <script>
@@ -226,14 +238,13 @@
         let allLocations = [];
 
         // --- DOM ELEMENT SELECTORS ---
-        // Navigation
         const navInventory = document.getElementById('navInventory');
         const navSearch = document.getElementById('navSearch');
         const navSettings = document.getElementById('navSettings');
+        const navLogout = document.getElementById('navLogout'); // The new logout button
+
         const addPropSection = document.getElementById('addPropSection');
         const searchPropsSection = document.getElementById('searchPropsSection');
-
-        // Add Prop Elements
         const cameraStreamEl = document.getElementById('cameraStreamEl');
         const photoCanvasEl = document.getElementById('photoCanvasEl');
         const capturePhotoButton = document.getElementById('capturePhotoButton');
@@ -242,8 +253,6 @@
         const locationInput = document.getElementById('locationInput');
         const quantityInput = document.getElementById('quantityInput');
         const addToInventoryButton = document.getElementById('addToInventoryButton');
-
-        // ... (rest of the selectors are the same) ...
         const propsTableBody = document.getElementById('propsTableBody');
         const noPropsMessage = document.getElementById('noPropsMessage');
         const searchInput = document.getElementById('searchInput');
@@ -281,7 +290,13 @@
         let currentPopupImageIndex = 0;
         let currentPopupPropDetails = null;
 
-        // --- NAVIGATION LOGIC ---
+        // --- NAVIGATION & EVENT LISTENERS ---
+        navInventory.addEventListener('click', () => showSection('add'));
+        navSearch.addEventListener('click', () => showSection('search'));
+        navLogout.addEventListener('click', () => {
+            window.location.href = '/logout';
+        });
+
         function showSection(sectionId) {
             addPropSection.classList.add('hidden');
             searchPropsSection.classList.add('hidden');
@@ -299,10 +314,7 @@
                 fetchProps(); 
             }
         }
-        navInventory.addEventListener('click', () => showSection('add'));
-        navSearch.addEventListener('click', () => showSection('search'));
-
-        // --- UI MESSAGE ---
+        
         function showUIMessage(message, type = 'success', duration = 3000) {
             const msgDiv = document.createElement('div');
             msgDiv.textContent = message;
@@ -380,11 +392,9 @@
                 
                 showUIMessage('Prop added successfully!', 'success');
                 
-                // Save the successful ID and Location to session storage
                 sessionStorage.setItem('lastStorageId', storageId);
-                sessionStorage.setItem('lastLocation', location); // NEW
+                sessionStorage.setItem('lastLocation', location);
                 
-                // Only clear the fields that need resetting
                 quantityInput.value = '1';
                 capturedPhotoDataUrls = [];
                 renderCapturedPhotos();
@@ -403,10 +413,8 @@
                 if (!response.ok) throw new Error('Failed to fetch locations');
                 allLocations = await response.json();
                 
-                // Get saved location before repopulating
-                const savedLocation = sessionStorage.getItem('lastLocation'); // NEW
+                const savedLocation = sessionStorage.getItem('lastLocation');
                 
-                // Populate the "Add Prop" dropdown
                 locationInput.innerHTML = '<option value="">-- Select Location --</option>';
                 allLocations.forEach(loc => {
                     const option = document.createElement('option');
@@ -414,12 +422,10 @@
                     option.textContent = loc.name;
                     locationInput.appendChild(option);
                 });
-                // NEW: Set the value from session storage if it exists
                 if (savedLocation) {
                     locationInput.value = savedLocation;
                 }
 
-                // Populate the "Edit Prop" dropdown
                 const selectedEditLocation = editLocationInput.value;
                 editLocationInput.innerHTML = '<option value="">-- Select Location --</option>';
                  allLocations.forEach(loc => {
@@ -430,7 +436,6 @@
                 });
                 editLocationInput.value = selectedEditLocation;
 
-                // Populate the list in the Settings modal
                 currentLocationsList.innerHTML = '';
                 if (allLocations.length === 0) {
                     currentLocationsList.innerHTML = '<p class="text-gray-500 text-sm">No locations defined yet.</p>';
@@ -474,7 +479,6 @@
         });
 
         // --- All other functions (Search, Modals, Popups) remain the same ---
-        // ... (The rest of your JavaScript code is unchanged) ...
         async function fetchProps(searchTerm = '') {
             propsTableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4">Loading...</td></tr>`;
             try {
@@ -619,13 +623,10 @@
         
         // --- INITIAL LOAD ---
         window.addEventListener('DOMContentLoaded', () => {
-            // Load the last saved Storage ID from session storage
             const savedStorageId = sessionStorage.getItem('lastStorageId');
             if (savedStorageId) {
                 storageIdInput.value = savedStorageId;
             }
-
-            // Existing code
             showSection('add');
             fetchAndPopulateLocations();
             renderCapturedPhotos();
