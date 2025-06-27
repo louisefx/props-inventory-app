@@ -1,7 +1,15 @@
 -- schema.sql
 
+-- Drop tables in reverse order of creation due to foreign keys (if any in future)
 DROP TABLE IF EXISTS props;
 DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL
+);
 
 CREATE TABLE locations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
