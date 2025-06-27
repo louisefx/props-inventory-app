@@ -243,15 +243,13 @@
         const quantityInput = document.getElementById('quantityInput');
         const addToInventoryButton = document.getElementById('addToInventoryButton');
 
-        // Search Prop Elements
+        // ... (rest of the selectors are the same) ...
         const propsTableBody = document.getElementById('propsTableBody');
         const noPropsMessage = document.getElementById('noPropsMessage');
         const searchInput = document.getElementById('searchInput');
         const searchButton = document.getElementById('searchButton');
         const clearSearchButton = document.getElementById('clearSearchButton');
         const messageArea = document.getElementById('messageArea');
-
-        // Edit Modal Elements
         const editPropModal = document.getElementById('editPropModal');
         const saveChangesButton = document.getElementById('saveChangesButton');
         const editPropIdInput = document.getElementById('editPropId');
@@ -263,17 +261,25 @@
         const editKeywordsInput = document.getElementById('editKeywords');
         const editStatusInput = document.getElementById('editStatus');
         const editPropImagesContainer = document.getElementById('editPropImages');
-        
-        // Settings Modal Elements
         const settingsModal = document.getElementById('settingsModal');
         const addLocationForm = document.getElementById('addLocationForm');
         const newLocationNameInput = document.getElementById('newLocationNameInput');
         const currentLocationsList = document.getElementById('currentLocationsList');
-
-        // Image Popup Elements
         const imagePopupOverlay = document.getElementById('imagePopupOverlay');
         const popupImage = document.getElementById('popupImage');
-        // ... (rest of the image popup selectors are the same)
+        const closeImagePopupButton = document.getElementById('closeImagePopupButton');
+        const popupInfoStorageId = document.getElementById('popupInfoStorageId');
+        const popupInfoDescription = document.getElementById('popupInfoDescription');
+        const popupInfoLocation = document.getElementById('popupInfoLocation');
+        const popupInfoCategory = document.getElementById('popupInfoCategory');
+        const popupInfoKeywords = document.getElementById('popupInfoKeywords');
+        const popupInfoStatus = document.getElementById('popupInfoStatus');
+        const popupInfoQuantity = document.getElementById('popupInfoQuantity');
+        const popupPrevImageButton = document.getElementById('popupPrevImageButton');
+        const popupNextImageButton = document.getElementById('popupNextImageButton');
+        let currentPopupImages = [];
+        let currentPopupImageIndex = 0;
+        let currentPopupPropDetails = null;
 
         // --- NAVIGATION LOGIC ---
         function showSection(sectionId) {
@@ -374,11 +380,11 @@
                 
                 showUIMessage('Prop added successfully!', 'success');
                 
-                // NEW: Save the successful Storage ID to session storage
+                // Save the successful ID and Location to session storage
                 sessionStorage.setItem('lastStorageId', storageId);
+                sessionStorage.setItem('lastLocation', location); // NEW
                 
-                // CHANGED: Only clear the fields that need resetting
-                locationInput.selectedIndex = 0;
+                // Only clear the fields that need resetting
                 quantityInput.value = '1';
                 capturedPhotoDataUrls = [];
                 renderCapturedPhotos();
@@ -397,7 +403,10 @@
                 if (!response.ok) throw new Error('Failed to fetch locations');
                 allLocations = await response.json();
                 
-                const selectedLocation = locationInput.value;
+                // Get saved location before repopulating
+                const savedLocation = sessionStorage.getItem('lastLocation'); // NEW
+                
+                // Populate the "Add Prop" dropdown
                 locationInput.innerHTML = '<option value="">-- Select Location --</option>';
                 allLocations.forEach(loc => {
                     const option = document.createElement('option');
@@ -405,8 +414,12 @@
                     option.textContent = loc.name;
                     locationInput.appendChild(option);
                 });
-                locationInput.value = selectedLocation;
+                // NEW: Set the value from session storage if it exists
+                if (savedLocation) {
+                    locationInput.value = savedLocation;
+                }
 
+                // Populate the "Edit Prop" dropdown
                 const selectedEditLocation = editLocationInput.value;
                 editLocationInput.innerHTML = '<option value="">-- Select Location --</option>';
                  allLocations.forEach(loc => {
@@ -417,6 +430,7 @@
                 });
                 editLocationInput.value = selectedEditLocation;
 
+                // Populate the list in the Settings modal
                 currentLocationsList.innerHTML = '';
                 if (allLocations.length === 0) {
                     currentLocationsList.innerHTML = '<p class="text-gray-500 text-sm">No locations defined yet.</p>';
@@ -605,7 +619,7 @@
         
         // --- INITIAL LOAD ---
         window.addEventListener('DOMContentLoaded', () => {
-            // NEW: Load the last saved Storage ID from session storage
+            // Load the last saved Storage ID from session storage
             const savedStorageId = sessionStorage.getItem('lastStorageId');
             if (savedStorageId) {
                 storageIdInput.value = savedStorageId;
