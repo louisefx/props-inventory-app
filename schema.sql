@@ -1,22 +1,17 @@
--- schema.sql
+-- This schema safely creates tables without deleting existing data.
 
--- Drop tables in reverse order of creation due to foreign keys (if any in future)
-DROP TABLE IF EXISTS props;
-DROP TABLE IF EXISTS locations;
-DROP TABLE IF EXISTS users;
-
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL
 );
 
-CREATE TABLE locations (
+CREATE TABLE IF NOT EXISTS locations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL
 );
 
-CREATE TABLE props (
+CREATE TABLE IF NOT EXISTS props (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     Location TEXT,
     Storage_id TEXT NOT NULL,
